@@ -28,4 +28,4 @@ Manual Install Clone the latest compiler build directly from GitHub
 # ◈ Documentation
 Explore the core principles and internal architecture in our official guide:
 
-[[ SERENADE_DOCS.md ]](https://github.com/kaifczxc-lab/Serenade-Language/blob/SiritoriProjects/Docs.md)
+[ SERENADE_DOCS.md ]https://github.com/kaifczxc-lab/Serenade-Language/blob/SiritoriProjects/Docs.md
