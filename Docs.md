@@ -1954,10 +1954,6 @@ A: Generated C++ code is as fast as hand-written C++. Assembly paths can exceed 
 
 A: Yes, modify `serena.build.conf` to add linker flags.
 
-**Q: Why is the visual system Windows-only?**
-
-A: Current implementation uses GDI+. Linux support is planned using X11 or SDL.
-
 **Q: How do I debug Serenade code?**
 
 A: Examine the generated C++ code in the temp build directory. Use `srcheckproc()` for runtime diagnostics.
@@ -1972,7 +1968,7 @@ A: See the project repository for contribution guidelines.
 
 **Q: What's the license?**
 
-A: See LICENSE file in the repository.
+A: MIT
 
 ---
 
