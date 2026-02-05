@@ -23,7 +23,7 @@ Get the environment ready in seconds:
 
 VS Code Extension Search for "Serenade Language" in the Visual Studio Marketplace
 
-Manual Install Clone the latest compiler build directly from GitHub
+Or Install from Github Page!
 
 # ◈ Documentation
 Explore the core principles and internal architecture in our official guide:
