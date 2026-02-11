@@ -16,7 +16,7 @@ Built-in SIMD (AVX2/FMA) acceleration and memory-safe structures
 
 **◈ Race Condition Protection**
 
-Native mechanisms designed to eliminate concurrency bugs by default (Atomic func)
+Native mechanisms designed to eliminate concurrency bugs by default (Atomics)
 
 # ◈ Quick Start
 Get the environment ready in seconds:
