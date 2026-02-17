@@ -4846,125 +4846,6 @@ This is functionally equivalent to `gpu forward` but uses asynchronous CUDA stre
 
 ---
 
-## OpenGL / 3D Game Operations
-
-Serenade includes a built-in OpenGL 3D rendering engine (Windows only). These operations create a window, render 3D geometry, handle camera and input, generate procedural dungeons, and run a game loop.
-
-### opengl_init
-
-Initializes an OpenGL window with the given width, height, and title.
-
-```serenade
-opengl_init(1280, 720, "My Game")
-```
-
-### gl_clear / gl_present
-
-`gl_clear(color)` sets the background clear color (ARGB hex). `gl_present()` renders one frame.
-
-```serenade
-gl_clear(0xFF101018)
-```
-
-### gl_begin3d / gl_end3d
-
-`gl_begin3d(fov, near, far)` enables 3D perspective. `gl_end3d()` disables it.
-
-```serenade
-gl_begin3d(75.0, 0.05, 50.0)
-```
-
-### draw_rect / draw_text / draw_cube
-
-```serenade
-draw_rect(x, y, w, h, color)               # 2D rectangle (HUD)
-draw_text(x, y, "text", color)              # pixel font text
-draw_cube(x, y, z, sx, sy, sz, color)       # 3D cube
-```
-
-`draw_text` uses a built-in 5x7 pixel font. Supports `\n` and string interpolation.
-
-### Camera Operations
-
-```serenade
-camera_set(x, y, z, yaw, pitch)
-camera_move(forward, right, up)
-camera_rotate(dyaw, dpitch)
-camera_lock_y(1.6)                  # lock height for walking
-camera_unlock_y()
-camera_get_x()  camera_get_z()  camera_get_y()  camera_get_yaw()
-```
-
-### Input Detection
-
-```serenade
-key_down(69)                        # 1.0 if held, 0.0 if not
-key_pressed(69)                     # 1.0 on first press only
-```
-
-Windows virtual key codes: W=87, A=65, S=83, D=68, E=69, F=70, Space=32, Escape=27.
-
-### Dungeon Generation
-
-```serenade
-dungeon_generate(50, 50, seed)      # BSP dungeon (tiles: 0=wall, 1=floor, 3=stairs)
-dungeon_draw(3.0, wall_col, floor_col, ceil_col)
-dungeon_tile(x, z)                  # read tile
-dungeon_set_tile(x, z, val)         # write tile
-dungeon_spawn_x()                   # spawn X
-dungeon_spawn_z()                   # spawn Z
-dungeon_can_walk(x, z)              # 1.0 if walkable
-```
-
-### Game Loops
-
-```serenade
-opengl_loop()                       # static display loop
-opengl_gameloop(tick)               # calls tick() every frame before render
-```
-
-`opengl_gameloop` clears draw lists each frame. Re-draw everything in the callback.
-
-### World Generation (Terrain)
-
-```serenade
-world_seed(42)
-world_radius(26)
-world_generate()
-```
-
----
-
-## Print Statement
-
-A `print` statement outputs formatted text using C-style printf syntax.
-
-```
-Print = "print" Expr .
-```
-
-```serenade
-print "loss = %f\n" loss
-```
-
-Unlike `emit`, which uses string interpolation (`{var}`), `print` passes its argument directly to `std::printf`. Use `print` when precise formatting control is needed.
-
----
-
-## Expression Argument Parsing
-
-All command statements that accept space-separated arguments use expression-aware parsing. Arithmetic operators (`*`, `+`, `-`, `/`, `%`) between identifiers are treated as part of a single expression, not as argument separators.
-
-```serenade
-# "DIM * HIDDEN" is one argument, not three
-randinit w1 DIM * HIDDEN 137
-gpu sgd w1 gw1 0.01 DIM * HIDDEN
-l2norm vecs i * DIM DIM
-```
-
-This applies to all commands documented in this section: `randinit`, `memfill`, `memcopy`, `l2norm`, `embed`, `embed_str`, `dot`, `search`, `searchx`, `readfile`, `files`, `splitfile`, `shuffle`, `gpu forward`, `gpu backward`, `gpu sgd`, `gpu bench`, `gpu triplet`, `gpu softmax`, `gpu layernorm`, `gpu gelu`, `gpu attention`, `gpu forwardfast`, and all other GPU operations.
-
----
 
 ## Complete Example: Code Search Engine (v1 — Autoencoder)
 
@@ -5133,9 +5014,7 @@ fn encode(dst, rbuf, rlen) {
     gpu forward dst a2 w3 b3 1 H2 DIM
     l2norm dst DIM
 }
-
 let seed = 7919
-
 # training with triplet loss
 cycle EPOCHS as ep {
     shuffle idx fc seed
@@ -5212,7 +5091,6 @@ cycle EPOCHS as ep {
         }
     }
 }
-
 # index all files
 cycle fc as i {
     readfile len = load buf i MAX_TOK
@@ -5229,7 +5107,6 @@ cycle fc as i {
 cycle fc as i {
     l2norm vecs i * DIM DIM
 }
-
 # interactive search with explanations
 while 1 == 1 {
     prompt q "> "
@@ -5264,29 +5141,22 @@ struct Transform {
     rotation f64
     scale f64
 }
-
 struct Entity {
     id i32
     active i32
     transform Transform
     health i32
 }
-
 const MAX_ENTITIES = 10000
-
 own entity_pool = @Entity[MAX_ENTITIES]
 atomic entity_count = 0
-
 fn spawn_entity(x, y) result {
     let idx = entity_count
     if idx >= MAX_ENTITIES {
         return err("entity pool full")
     }
-
     guard entity_pool
-
     entity_count = entity_count + 1
-
     mut ref ent = entity_pool^[idx]
     ent.id = idx
     ent.active = 1
@@ -5295,10 +5165,8 @@ fn spawn_entity(x, y) result {
     ent.transform.rotation = 0.0
     ent.transform.scale = 1.0
     ent.health = 100
-
     return ok(idx)
 }
-
 fn get_entity(id) option {
     guard id >= 0 and id < entity_count
     ref ent = entity_pool^[id]
@@ -5307,7 +5175,6 @@ fn get_entity(id) option {
     }
     return some(id)
 }
-
 fn move_entity(id, dx, dy) result {
     let ent_opt = get_entity(id)
     match ent_opt {
@@ -5322,7 +5189,6 @@ fn move_entity(id, dx, dy) result {
         }
     }
 }
-
 fn damage_entity(id, dmg) result {
     let ent_opt = get_entity(id)
     match ent_opt {
@@ -5332,26 +5198,21 @@ fn damage_entity(id, dmg) result {
         case some(valid_id) {
             mut ref ent = entity_pool^[valid_id]
             ent.health = ent.health - dmg
-
             if ent.health <= 0 {
                 ent.active = 0
                 emit "Entity {id} destroyed"
             }
-
             return ok(ent.health)
         }
     }
 }
-
 # Game loop
 let player_result = spawn_entity(0.0, 0.0)
 match player_result {
     case ok(player_id) {
         emit "Player spawned with ID {player_id}"
-
         # Move player
         let move_result = try move_entity(player_id, 10.0, 5.0)
-
         # Take damage
         let health_result = damage_entity(player_id, 30)
         match health_result {
@@ -5382,9 +5243,7 @@ struct Particle {
     vx f32
     vy f32
 }
-
 own particles = @Particle[PARTICLE_COUNT]
-
 fn init_particles() {
     random_seed(12345)
     cycle PARTICLE_COUNT as i {
@@ -5395,20 +5254,17 @@ fn init_particles() {
         p.vy = (random() - 0.5) * 10.0
     }
 }
-
 fn physics_step(dt) result {
     guard particles
     if not cuda_available() {
         return err("CUDA required for GPU physics")
     }
-
     scope gpu_frame {
         # Temporary buffers freed at scope exit
         let pos_x = @f32[PARTICLE_COUNT]
         let pos_y = @f32[PARTICLE_COUNT]
         let vel_x = @f32[PARTICLE_COUNT]
         let vel_y = @f32[PARTICLE_COUNT]
-
         # Extract to AoS → SoA for GPU
         cycle PARTICLE_COUNT as i {
             ref p = particles^[i]
@@ -5417,19 +5273,16 @@ fn physics_step(dt) result {
             vel_x^[i] = p.vx
             vel_y^[i] = p.vy
         }
-
         # GPU update: pos += vel * dt
         gpu scale vel_x dt PARTICLE_COUNT
         gpu scale vel_y dt PARTICLE_COUNT
         gpu add pos_x pos_x vel_x PARTICLE_COUNT
         gpu add pos_y pos_y vel_y PARTICLE_COUNT
-
         # Copy back
         cycle PARTICLE_COUNT as i {
             mut ref p = particles^[i]
             p.x = pos_x^[i]
             p.y = pos_y^[i]
-
             # Boundary check (CPU)
             if p.x < 0.0 or p.x > 800.0 {
                 p.vx = p.vx * -1.0
@@ -5440,17 +5293,12 @@ fn physics_step(dt) result {
         }
     }
     # Temporary GPU buffers freed here
-
     return ok(0)
 }
-
-# Main loop
 init_particles()
-
 let running = 1
 while running {
     let start = time_ms()
-
     let step_result = physics_step(0.016)
     match step_result {
         case ok(_) {
@@ -5461,7 +5309,6 @@ while running {
             running = 0
         }
     }
-
     let elapsed = time_ms() - start
     if elapsed < 16.0 {
         wait 16.0 - elapsed
@@ -5479,37 +5326,28 @@ struct Job {
     data i32
     processed i32
 }
-
 const MAX_JOBS = 1000
-
 own job_queue = @Job[MAX_JOBS]
 atomic job_count = 0
 atomic processed_count = 0
-
 fn add_job(data) result {
     let idx = job_count
     if idx >= MAX_JOBS {
         return err("job queue full")
     }
-
     job_count = job_count + 1
-
     mut ref job = job_queue^[idx]
     job.id = idx
     job.data = data
     job.processed = 0
-
     return ok(idx)
 }
-
 task worker(id, queue) {
     emit "Worker {id} started"
-
     cycle 1000 {
         # Find unprocessed job
         let found = 0
         let job_id = -1
-
         cycle job_count as i {
             ref job = queue^[i]
             if job.processed == 0 {
@@ -5518,25 +5356,20 @@ task worker(id, queue) {
                 break
             }
         }
-
         if found {
             mut ref job = queue^[job_id]
             job.processed = 1
-
             # Simulate work
             let result = job.data * 2
             wait 10
-
             processed_count = processed_count + 1
             emit "Worker {id} processed job {job.id}: {result}"
         } else {
             wait 50
         }
     }
-
     emit "Worker {id} finished"
 }
-
 # Add jobs
 cycle 100 as i {
     let result = add_job(i * 10)
@@ -5549,16 +5382,13 @@ cycle 100 as i {
         }
     }
 }
-
 # Spawn workers
 let w1 = spawn worker(1, job_queue)
 let w2 = spawn worker(2, job_queue)
 let w3 = spawn worker(3, job_queue)
-
 await w1
 await w2
 await w3
-
 emit "All workers done. Processed: {processed_count} jobs"
 ```
 
@@ -5571,15 +5401,12 @@ fn read_config(path) result {
     if not file_exists(path) {
         return err("config file not found")
     }
-
     let content = read_file(path)
     if content.length == 0 {
         return err("empty config file")
     }
-
     return ok(content)
 }
-
 fn parse_number(text) result {
     let num = parse_int(text)
     if num < 0 {
@@ -5590,29 +5417,22 @@ fn parse_number(text) result {
     }
     return ok(num)
 }
-
 fn process_config(path) result {
     # Automatic error propagation with try
     let content = try read_config(path)
     let num = try parse_number(content)
-
     emit "Configuration loaded: {num}"
     return ok(num)
 }
-
 fn run_pipeline() result {
     let config = try process_config("config.txt")
-
     # Use config value
     let buffer_size = config * 1024
     let buffer = @f32[buffer_size]
-
     guard buffer
     emit "Allocated buffer of size {buffer_size}"
-
     return ok(0)
 }
-
 # Execute pipeline
 let result = run_pipeline()
 match result {
@@ -5635,56 +5455,45 @@ struct Texture {
     width i32
     height i32
 }
-
 fn load_texture(path) result {
     if not file_exists(path) {
         return err("texture not found")
     }
-
     let tex = Texture { 0, 0, 0 }
-
     native cpp {
         // Allocate OpenGL texture
         GLuint texID;
         glGenTextures(1, &texID);
         tex.id = (int)texID;
     }
-
     defer native cpp {
         // Guaranteed cleanup on scope exit
         GLuint texID = (GLuint)tex.id;
         glDeleteTextures(1, &texID);
     }
-
     # Load image data
     let data = read_file_bytes(path)
     defer free_bytes(data)
-
     native cpp {
         glBindTexture(GL_TEXTURE_2D, (GLuint)tex.id);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 256, 0,
                      GL_RGBA, GL_UNSIGNED_BYTE, data);
     }
-
     tex.width = 256
     tex.height = 256
-
     return ok(tex)
 }
 
 fn render_frame() result {
     let tex_result = load_texture("sprite.png")
-
     match tex_result {
         case ok(texture) {
             emit "Loaded texture: {texture.width}x{texture.height}"
-
             # Use texture for rendering
             native cpp {
                 glBindTexture(GL_TEXTURE_2D, (GLuint)texture.id);
                 // ... render geometry
             }
-
             # Texture automatically cleaned up by defer
             return ok(0)
         }
@@ -5693,11 +5502,8 @@ fn render_frame() result {
         }
     }
 }
-
-# Main render loop
 cycle 60 {
     let start = time_ms()
-
     let result = render_frame()
     match result {
         case err(msg) {
@@ -5708,7 +5514,6 @@ cycle 60 {
             # Frame rendered successfully
         }
     }
-
     let elapsed = time_ms() - start
     if elapsed < 16.67 {
         wait 16.67 - elapsed  # Target 60 FPS
@@ -5724,7 +5529,6 @@ GPU neural network forward pass with compile-time safety checks:
 const INPUT_DIM = 784
 const HIDDEN_DIM = 256
 const OUTPUT_DIM = 10
-
 struct NeuralNet {
     w1 @f32
     b1 @f32
@@ -5732,23 +5536,19 @@ struct NeuralNet {
     b2 @f32
     initialized i32
 }
-
 fn create_network() result {
     if not cuda_available() {
         return err("CUDA required for GPU inference")
     }
-
     scope network_init {
         let w1 = @f32[INPUT_DIM * HIDDEN_DIM]
         let b1 = @f32[HIDDEN_DIM]
         let w2 = @f32[HIDDEN_DIM * OUTPUT_DIM]
         let b2 = @f32[OUTPUT_DIM]
-
         guard w1
         guard b1
         guard w2
         guard b2
-
         # Random initialization
         cycle INPUT_DIM * HIDDEN_DIM as i {
             w1^[i] = (random() - 0.5) * 0.01
@@ -5762,7 +5562,6 @@ fn create_network() result {
         cycle OUTPUT_DIM as i {
             b2^[i] = 0.0
         }
-
         let net = NeuralNet { w1, b1, w2, b2, 1 }
         return ok(net)
     }
@@ -5770,20 +5569,16 @@ fn create_network() result {
 
 fn infer(net, input) result {
     guard net.initialized == 1
-
     scope inference {
         let hidden = @f32[HIDDEN_DIM]
         let output = @f32[OUTPUT_DIM]
-
         guard hidden
         guard output
-
         # Forward pass
         gpu forward hidden input net.w1 net.b1 1 INPUT_DIM HIDDEN_DIM
         gpu relu hidden HIDDEN_DIM
         gpu forward output hidden net.w2 net.b2 1 HIDDEN_DIM OUTPUT_DIM
         gpu softmax output OUTPUT_DIM
-
         # Find max probability
         let max_idx = 0
         let max_val = output^[0]
@@ -5793,23 +5588,18 @@ fn infer(net, input) result {
                 max_idx = i
             }
         }
-
         return ok(max_idx)
     }
 }
-
-# Create network
 let net_result = create_network()
 match net_result {
     case ok(network) {
         emit "Network created successfully"
-
         # Prepare input
         let input = @f32[INPUT_DIM]
         cycle INPUT_DIM as i {
             input^[i] = random()
         }
-
         # Run inference
         let pred_result = infer(network, input)
         match pred_result {
