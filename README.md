@@ -18,10 +18,10 @@ Built-in SIMD (AVX2/FMA) acceleration and memory-safe structures
 
 Native mechanisms designed to eliminate concurrency bugs by default (Atomics)
 
-# ◈ Quick Start
-Get the environment ready in seconds:
+# ◈ Notes
+The language is not yet available for download
 
-VS Code Extension Search for "Serenade Language" in the Visual Studio Marketplace
+It is currently in development
 
 # ◈ Documentation
 Explore the core principles and internal architecture in our official guide:
