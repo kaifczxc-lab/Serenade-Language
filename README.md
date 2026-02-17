@@ -1,6 +1,6 @@
 <img width="1920" height="687" alt="SERENADE_GITHUB" src="https://github.com/user-attachments/assets/cd77cc96-7721-41d8-bd96-cea2835456d1" />
 
-# ✦ SERENADE LANGUAGE | v0.1-Alpha
+# ✦ SERENADE LANGUAGE | v0.3-Alpha
 High-Performance Polyglot Technology Merging the power of ASM, the efficiency of C++, the concurrency of Go (Goroutines) and the raw videocard power of CUDA
 
 # ◈ Why Serenade?
