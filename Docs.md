@@ -5130,491 +5130,236 @@ while 1 == 1 {
 
 This section demonstrates real-world applications combining Serenade's features.
 
-### Example 1: Safe Memory-Managed Game Entity System
+### Example 1: Matrix Multiply
 
 Combining ownership, borrowing, option types, and result types for a robust entity manager:
 
 ```serenade
-struct Transform {
-    x f64
-    y f64
-    rotation f64
-    scale f64
-}
-struct Entity {
-    id i32
-    active i32
-    transform Transform
-    health i32
-}
-const MAX_ENTITIES = 10000
-own entity_pool = @Entity[MAX_ENTITIES]
-atomic entity_count = 0
-fn spawn_entity(x, y) result {
-    let idx = entity_count
-    if idx >= MAX_ENTITIES {
-        return err("entity pool full")
-    }
-    guard entity_pool
-    entity_count = entity_count + 1
-    mut ref ent = entity_pool^[idx]
-    ent.id = idx
-    ent.active = 1
-    ent.transform.x = x
-    ent.transform.y = y
-    ent.transform.rotation = 0.0
-    ent.transform.scale = 1.0
-    ent.health = 100
-    return ok(idx)
-}
-fn get_entity(id) option {
-    guard id >= 0 and id < entity_count
-    ref ent = entity_pool^[id]
-    if ent.active == 0 {
-        return none
-    }
-    return some(id)
-}
-fn move_entity(id, dx, dy) result {
-    let ent_opt = get_entity(id)
-    match ent_opt {
-        case none {
-            return err("entity not found or inactive")
-        }
-        case some(valid_id) {
-            mut ref ent = entity_pool^[valid_id]
-            ent.transform.x = ent.transform.x + dx
-            ent.transform.y = ent.transform.y + dy
-            return ok(0)
-        }
-    }
-}
-fn damage_entity(id, dmg) result {
-    let ent_opt = get_entity(id)
-    match ent_opt {
-        case none {
-            return err("cannot damage inactive entity")
-        }
-        case some(valid_id) {
-            mut ref ent = entity_pool^[valid_id]
-            ent.health = ent.health - dmg
-            if ent.health <= 0 {
-                ent.active = 0
-                emit "Entity {id} destroyed"
-            }
-            return ok(ent.health)
-        }
-    }
-}
-# Game loop
-let player_result = spawn_entity(0.0, 0.0)
-match player_result {
-    case ok(player_id) {
-        emit "Player spawned with ID {player_id}"
-        # Move player
-        let move_result = try move_entity(player_id, 10.0, 5.0)
-        # Take damage
-        let health_result = damage_entity(player_id, 30)
-        match health_result {
-            case ok(hp) {
-                emit "Player health: {hp}"
-            }
-            case err(msg) {
-                emit "Error: {msg}"
-            }
-        }
-    }
-    case err(msg) {
-        emit "Failed to spawn player: {msg}"
-    }
-}
-```
-
-### Example 2: GPU-Accelerated Physics Simulation with Safety
-
-Using ownership, scopes, and GPU operations for particle simulation:
-
-```serenade
-const PARTICLE_COUNT = 100000
-
-struct Particle {
-    x f32
-    y f32
-    vx f32
-    vy f32
-}
-own particles = @Particle[PARTICLE_COUNT]
-fn init_particles() {
-    random_seed(12345)
-    cycle PARTICLE_COUNT as i {
-        mut ref p = particles^[i]
-        p.x = random() * 800.0
-        p.y = random() * 600.0
-        p.vx = (random() - 0.5) * 10.0
-        p.vy = (random() - 0.5) * 10.0
-    }
-}
-fn physics_step(dt) result {
-    guard particles
-    if not cuda_available() {
-        return err("CUDA required for GPU physics")
-    }
-    scope gpu_frame {
-        # Temporary buffers freed at scope exit
-        let pos_x = @f32[PARTICLE_COUNT]
-        let pos_y = @f32[PARTICLE_COUNT]
-        let vel_x = @f32[PARTICLE_COUNT]
-        let vel_y = @f32[PARTICLE_COUNT]
-        # Extract to AoS → SoA for GPU
-        cycle PARTICLE_COUNT as i {
-            ref p = particles^[i]
-            pos_x^[i] = p.x
-            pos_y^[i] = p.y
-            vel_x^[i] = p.vx
-            vel_y^[i] = p.vy
-        }
-        # GPU update: pos += vel * dt
-        gpu scale vel_x dt PARTICLE_COUNT
-        gpu scale vel_y dt PARTICLE_COUNT
-        gpu add pos_x pos_x vel_x PARTICLE_COUNT
-        gpu add pos_y pos_y vel_y PARTICLE_COUNT
-        # Copy back
-        cycle PARTICLE_COUNT as i {
-            mut ref p = particles^[i]
-            p.x = pos_x^[i]
-            p.y = pos_y^[i]
-            # Boundary check (CPU)
-            if p.x < 0.0 or p.x > 800.0 {
-                p.vx = p.vx * -1.0
-            }
-            if p.y < 0.0 or p.y > 600.0 {
-                p.vy = p.vy * -1.0
-            }
-        }
-    }
-    # Temporary GPU buffers freed here
-    return ok(0)
-}
-init_particles()
-let running = 1
-while running {
-    let start = time_ms()
-    let step_result = physics_step(0.016)
-    match step_result {
-        case ok(_) {
-            # Success — continue
-        }
-        case err(msg) {
-            emit "Physics error: {msg}"
-            running = 0
-        }
-    }
-    let elapsed = time_ms() - start
-    if elapsed < 16.0 {
-        wait 16.0 - elapsed
-    }
-}
-```
-
-### Example 3: Concurrent Task Queue with Arc and Atomics
-
-Thread-safe job processing using `arc` pointers and atomic counters:
-
-```serenade
-struct Job {
-    id i32
-    data i32
-    processed i32
-}
-const MAX_JOBS = 1000
-own job_queue = @Job[MAX_JOBS]
-atomic job_count = 0
-atomic processed_count = 0
-fn add_job(data) result {
-    let idx = job_count
-    if idx >= MAX_JOBS {
-        return err("job queue full")
-    }
-    job_count = job_count + 1
-    mut ref job = job_queue^[idx]
-    job.id = idx
-    job.data = data
-    job.processed = 0
-    return ok(idx)
-}
-task worker(id, queue) {
-    emit "Worker {id} started"
-    cycle 1000 {
-        # Find unprocessed job
-        let found = 0
-        let job_id = -1
-        cycle job_count as i {
-            ref job = queue^[i]
-            if job.processed == 0 {
-                job_id = i
-                found = 1
-                break
-            }
-        }
-        if found {
-            mut ref job = queue^[job_id]
-            job.processed = 1
-            # Simulate work
-            let result = job.data * 2
-            wait 10
-            processed_count = processed_count + 1
-            emit "Worker {id} processed job {job.id}: {result}"
+const DIM = 4
+let mat_a = @f32[DIM * DIM]
+let mat_b = @f32[DIM * DIM]
+let mat_c = @f32[DIM * DIM]
+cycle DIM as r {
+    cycle DIM as c {
+        if r == c {
+            mat_a^[r * DIM + c] = 2.0
         } else {
-            wait 50
-        }
-    }
-    emit "Worker {id} finished"
-}
-# Add jobs
-cycle 100 as i {
-    let result = add_job(i * 10)
-    match result {
-        case ok(job_id) {
-            emit "Added job {job_id}"
-        }
-        case err(msg) {
-            emit "Error: {msg}"
+            mat_a^[r * DIM + c] = 0.0
         }
     }
 }
-# Spawn workers
-let w1 = spawn worker(1, job_queue)
-let w2 = spawn worker(2, job_queue)
-let w3 = spawn worker(3, job_queue)
-await w1
-await w2
-await w3
-emit "All workers done. Processed: {processed_count} jobs"
-```
-
-### Example 4: File Processing Pipeline with Result Propagation
-
-Chaining file operations with automatic error handling using `try`:
-
-```serenade
-fn read_config(path) result {
-    if not file_exists(path) {
-        return err("config file not found")
+# fill B with 1..16
+let counter = 1.0
+cycle DIM as r {
+    cycle DIM as c {
+        mat_b^[r * DIM + c] = counter
+        counter = counter + 1.0
     }
-    let content = read_file(path)
-    if content.length == 0 {
-        return err("empty config file")
-    }
-    return ok(content)
 }
-fn parse_number(text) result {
-    let num = parse_int(text)
-    if num < 0 {
-        return err("negative number not allowed")
+# C = A * B
+cycle DIM as r {
+    cycle DIM as c {
+        let sum = 0.0
+        cycle DIM as k {
+            sum = sum + mat_a^[r * DIM + k] * mat_b^[k * DIM + c]
+        }
+        mat_c^[r * DIM + c] = sum
     }
-    if num > 1000000 {
-        return err("number too large")
-    }
-    return ok(num)
 }
-fn process_config(path) result {
-    # Automatic error propagation with try
-    let content = try read_config(path)
-    let num = try parse_number(content)
-    emit "Configuration loaded: {num}"
-    return ok(num)
-}
-fn run_pipeline() result {
-    let config = try process_config("config.txt")
-    # Use config value
-    let buffer_size = config * 1024
-    let buffer = @f32[buffer_size]
-    guard buffer
-    emit "Allocated buffer of size {buffer_size}"
-    return ok(0)
-}
-# Execute pipeline
-let result = run_pipeline()
-match result {
-    case ok(_) {
-        emit "Pipeline completed successfully"
-    }
-    case err(msg) {
-        emit "Pipeline failed: {msg}"
-    }
+emit "A = 2*I, B = 1..16"
+emit "C = A * B:"
+cycle DIM as r {
+    let c0 = mat_c^[r * DIM + 0]
+    let c1 = mat_c^[r * DIM + 1]
+    let c2 = mat_c^[r * DIM + 2]
+    let c3 = mat_c^[r * DIM + 3]
+    emit "  [{c0}, {c1}, {c2}, {c3}]"
 }
 ```
 
-### Example 5: Real-Time 3D Renderer with Defer Cleanup
+### Example 2: Stack
 
-Using `defer` for guaranteed resource cleanup in graphics code:
+push/pop/peek on an array with an sp pointer
 
 ```serenade
-struct Texture {
-    id i32
-    width i32
-    height i32
+const cap = 64
+let stack = @i32[cap]
+let sp = 0
+fn stack_push(val) {
+    if sp >= cap {
+        emit "stack overflow"
+        return
+    }
+    stack^[sp] = val
+    sp = sp + 1
 }
-fn load_texture(path) result {
-    if not file_exists(path) {
-        return err("texture not found")
+fn stack_pop() {
+    if sp <= 0 {
+        emit "stack underflow!"
+        return -1
     }
-    let tex = Texture { 0, 0, 0 }
-    native cpp {
-        // Allocate OpenGL texture
-        GLuint texID;
-        glGenTextures(1, &texID);
-        tex.id = (int)texID;
-    }
-    defer native cpp {
-        // Guaranteed cleanup on scope exit
-        GLuint texID = (GLuint)tex.id;
-        glDeleteTextures(1, &texID);
-    }
-    # Load image data
-    let data = read_file_bytes(path)
-    defer free_bytes(data)
-    native cpp {
-        glBindTexture(GL_TEXTURE_2D, (GLuint)tex.id);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 256, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, data);
-    }
-    tex.width = 256
-    tex.height = 256
-    return ok(tex)
+    sp = sp - 1
+    return stack^[sp]
 }
-
-fn render_frame() result {
-    let tex_result = load_texture("sprite.png")
-    match tex_result {
-        case ok(texture) {
-            emit "Loaded texture: {texture.width}x{texture.height}"
-            # Use texture for rendering
-            native cpp {
-                glBindTexture(GL_TEXTURE_2D, (GLuint)texture.id);
-                // ... render geometry
-            }
-            # Texture automatically cleaned up by defer
-            return ok(0)
-        }
-        case err(msg) {
-            return err(msg)
-        }
+fn stack_peek() {
+    if sp <= 0 {
+        return -1
     }
+    return stack^[sp - 1]
 }
-cycle 60 {
-    let start = time_ms()
-    let result = render_frame()
-    match result {
-        case err(msg) {
-            emit "Render error: {msg}"
-            break
-        }
-        case ok(_) {
-            # Frame rendered successfully
-        }
-    }
-    let elapsed = time_ms() - start
-    if elapsed < 16.67 {
-        wait 16.67 - elapsed  # Target 60 FPS
-    }
-}
+stack_push(10)
+stack_push(20)
+stack_push(30)
+emit "pushed 10, 20, 30"
+let top = stack_peek()
+emit "peek: {top}"
+let a = stack_pop()
+let b = stack_pop()
+let c = stack_pop()
+emit "popped: {a}, {b}, {c}"
+emit "stack size: {sp}"
 ```
 
-### Example 6: Neural Network Inference with Safety Guards
+### Example 3: Binary Search
 
-GPU neural network forward pass with compile-time safety checks:
+Search in a sorted array, hit + miss
 
 ```serenade
-const INPUT_DIM = 784
-const HIDDEN_DIM = 256
-const OUTPUT_DIM = 10
-struct NeuralNet {
-    w1 @f32
-    b1 @f32
-    w2 @f32
-    b2 @f32
-    initialized i32
+fn bin_search(data, size, target) {
+    let lo = 0
+    let hi = size - 1
+    while lo <= hi {
+        let mid = lo + (hi - lo) / 2
+        let val = data^[mid]
+        if val == target {
+            return mid
+        }
+        if val < target {
+            lo = mid + 1
+        } else {
+            hi = mid - 1
+        }
+    }
+    return -1
 }
-fn create_network() result {
-    if not cuda_available() {
-        return err("CUDA required for GPU inference")
+let mid_val = arr^[10]
+let found = bin_search(arr, N, mid_val)
+emit "search for {mid_val}: index={found}"
+let first_val = arr^[0]
+let found2 = bin_search(arr, N, first_val)
+emit "search for {first_val}: index={found2}"
+let miss = bin_search(arr, N, 999)
+emit "search for 999: index={miss}"
+```
+
+### Example 4: GCD / LCM 
+
+Euclidean algorithm using while + %
+
+```serenade
+fn gcd(a, b) {
+    while b != 0 {
+        let t = b
+        b = a % b
+        a = t
     }
-    scope network_init {
-        let w1 = @f32[INPUT_DIM * HIDDEN_DIM]
-        let b1 = @f32[HIDDEN_DIM]
-        let w2 = @f32[HIDDEN_DIM * OUTPUT_DIM]
-        let b2 = @f32[OUTPUT_DIM]
-        guard w1
-        guard b1
-        guard w2
-        guard b2
-        # Random initialization
-        cycle INPUT_DIM * HIDDEN_DIM as i {
-            w1^[i] = (random() - 0.5) * 0.01
+    return a
+}
+fn lcm(a, b) {
+    let g = gcd(a, b)
+    return a / g * b
+}
+let g1 = gcd(48, 18)
+emit "gcd(48, 18) = {g1}"
+let g2 = gcd(1071, 462)
+emit "gcd(1071, 462) = {g2}"
+let l1 = lcm(12, 8)
+emit "lcm(12, 8) = {l1}"
+```
+
+### Example 5: Selection Sort + Reverse
+
+sort by selection, then rotate in place
+
+```
+const M = 10
+let data = @i32[M]
+seed = 42
+cycle M as i {
+    seed = (seed * 1103515245 + 12345) % 2147483647
+    data^[i] = seed % 50
+}
+# selection sort
+cycle M as i {
+    let min_idx = i
+    let j = i + 1
+    while j < M {
+        if data^[j] < data^[min_idx] {
+            min_idx = j
         }
-        cycle HIDDEN_DIM as i {
-            b1^[i] = 0.0
-        }
-        cycle HIDDEN_DIM * OUTPUT_DIM as i {
-            w2^[i] = (random() - 0.5) * 0.01
-        }
-        cycle OUTPUT_DIM as i {
-            b2^[i] = 0.0
-        }
-        let net = NeuralNet { w1, b1, w2, b2, 1 }
-        return ok(net)
+        j = j + 1
     }
+    if min_idx != i {
+        let tmp = data^[i]
+        data^[i] = data^[min_idx]
+        data^[min_idx] = tmp
+    }
+}
+emit "sorted:"
+cycle M as i {
+    let v = data^[i]
+    emit "  {v}"
+}
+let lo_r = 0
+let hi_r = M - 1
+while lo_r < hi_r {
+    let tmp = data^[lo_r]
+    data^[lo_r] = data^[hi_r]
+    data^[hi_r] = tmp
+    lo_r = lo_r + 1
+    hi_r = hi_r - 1
+}
+emit "reversed:"
+cycle M as i {
+    let v = data^[i]
+    emit "  {v}"
 }
 
-fn infer(net, input) result {
-    guard net.initialized == 1
-    scope inference {
-        let hidden = @f32[HIDDEN_DIM]
-        let output = @f32[OUTPUT_DIM]
-        guard hidden
-        guard output
-        # Forward pass
-        gpu forward hidden input net.w1 net.b1 1 INPUT_DIM HIDDEN_DIM
-        gpu relu hidden HIDDEN_DIM
-        gpu forward output hidden net.w2 net.b2 1 HIDDEN_DIM OUTPUT_DIM
-        gpu softmax output OUTPUT_DIM
-        # Find max probability
-        let max_idx = 0
-        let max_val = output^[0]
-        cycle OUTPUT_DIM as i {
-            if output^[i] > max_val {
-                max_val = output^[i]
-                max_idx = i
-            }
-        }
-        return ok(max_idx)
+```
+
+### Example 6: Linked List (array-based)
+
+linked list via two arrays (val + next)
+
+```serenade
+const listcap = 32
+let list_val = @i32[listcap]
+let list_nxt = @i32[listcap]
+let list_len = 0
+let head = -1
+fn list_push(val) {
+    let idx = list_len
+    list_val^[idx] = val
+    list_nxt^[idx] = head
+    head = idx
+    list_len = list_len + 1
+}
+fn list_print() {
+    let cur = head
+    let count = 0
+    while cur != -1 {
+        let v = list_val^[cur]
+        emit "  node[{count}] = {v}"
+        cur = list_nxt^[cur]
+        count = count + 1
     }
 }
-let net_result = create_network()
-match net_result {
-    case ok(network) {
-        emit "Network created successfully"
-        # Prepare input
-        let input = @f32[INPUT_DIM]
-        cycle INPUT_DIM as i {
-            input^[i] = random()
-        }
-        # Run inference
-        let pred_result = infer(network, input)
-        match pred_result {
-            case ok(class_id) {
-                emit "Predicted class: {class_id}"
-            }
-            case err(msg) {
-                emit "Inference error: {msg}"
-            }
-        }
-    }
-    case err(msg) {
-        emit "Failed to create network: {msg}"
-    }
-}
+list_push(100)
+list_push(200)
+list_push(300)
+list_push(400)
+emit "list:"
+list_print()
 ```
 
 ### Key Takeaways from Examples
