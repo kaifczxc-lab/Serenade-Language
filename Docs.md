@@ -5132,7 +5132,7 @@ This section demonstrates real-world applications combining Serenade's features.
 
 ### Example 1: Matrix Multiply
 
-Combining ownership, borrowing, option types, and result types for a robust entity manager:
+the classic implementation of matrix multiplication through three nested loops
 
 ```serenade
 const DIM = 4
