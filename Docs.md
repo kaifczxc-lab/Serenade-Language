@@ -5504,8 +5504,6 @@ Special thanks to the open-source community for tools and libraries that make Se
 - 150+ new built-in functions documented
 - 6 advanced real-world examples
 
-**Total lines:** 5953 (↑2995 from v0.2)
-
 ### v0.2-Alpha
 - Initial public documentation release
 - Basic language features, GPU operations, OpenGL integration
