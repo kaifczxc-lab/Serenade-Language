@@ -62,7 +62,7 @@ A Serenade program is transpiled into:
 - **C++** for core runtime, memory management, and fast computation
 - **Go** for concurrent services, I/O, and tooling
 - **x86-64 Assembly** for critical hot paths and SIMD operations
-- **CUDA** for GPU power using
+- **CUDA** to support GPU
 
 The transpiler analyzes your Serenade code and generates optimized output in each target language, which is then compiled by standard toolchains (MSVC/GCC/Clang for C++, Go compiler for Go, NASM for assembly, NVCC for CUDA).
 
